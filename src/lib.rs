@@ -246,13 +246,19 @@ impl Game {
 
         let (home_score, away_score) = if scores.home > scores.away {
             home.points += 3;
+            home.wins += 1;
+            away.losses += 1;
             (1., 0.)
         } else if scores.home < scores.away {
-            away.points += 1;
+            away.points += 3;
+            home.losses += 1;
+            away.wins += 1;
             (0., 1.)
         } else {
             home.points += 1;
+            home.draws += 1;
             away.points += 1;
+            away.draws += 1;
             (0.5, 0.5)
         };
 
