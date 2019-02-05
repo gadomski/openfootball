@@ -1,11 +1,9 @@
-extern crate chrono;
 #[macro_use]
 extern crate failure;
 #[macro_use]
 extern crate lazy_static;
 extern crate regex;
 
-use chrono::NaiveDate;
 use failure::Error;
 use regex::Regex;
 use std::collections::BTreeMap;
@@ -22,14 +20,14 @@ pub struct Season {
 }
 
 /// A matchday.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Matchday {
     number: u16,
-    games: BTreeMap<NaiveDate, Vec<Game>>,
+    games: Vec<Game>,
 }
 
 /// A game.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Game {
     home_team: String,
     away_team: String,
@@ -65,12 +63,68 @@ impl Season {
         let mut string = String::new();
         let mut file = File::open(path)?;
         file.read_to_string(&mut string)?;
-        Ok(string.parse()?)
+        let mut season: Season = string.parse()?;
+        season.matchdays.sort();
+        Ok(season)
     }
 
     /// Returns this season's name.
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    /// Returns this season's teams.
+    pub fn teams(&self) -> Vec<String> {
+        use std::collections::HashSet;
+        let mut teams = HashSet::new();
+        for matchday in &self.matchdays {
+            for game in &matchday.games {
+                teams.insert(game.home_team.to_string());
+                teams.insert(game.away_team.to_string());
+            }
+        }
+        let mut teams: Vec<String> = teams.drain().collect();
+        teams.sort();
+        teams
+    }
+
+    /// Returns elo ratings for each match day.
+    pub fn ratings(&self) -> BTreeMap<u16, BTreeMap<String, i32>> {
+        let mut matchday_ratings: BTreeMap<u16, BTreeMap<String, i32>> = BTreeMap::new();
+        let mut ratings: BTreeMap<String, i32> =
+            self.teams().into_iter().map(|team| (team, 1500)).collect();
+        let expected_score = |a, b| 1. / (1. + 10f64.powf((b - a) / 400.));
+        let update = |score: f64, expected: f64| (32. * (score - expected)).round() as i32;
+        for matchday in &self.matchdays {
+            let mut has_unplayed_games = false;
+            for game in &matchday.games {
+                let home_rating = f64::from(ratings[&game.home_team]);
+                let away_rating = f64::from(ratings[&game.away_team]);
+                let home_expected = expected_score(home_rating, away_rating);
+                let away_expected = expected_score(home_rating, away_rating);
+                let (home_score, away_score) = if let Some((home_score, away_score)) = game
+                    .home_score
+                    .and_then(|home| game.away_score.map(|away| (home, away)))
+                {
+                    if home_score > away_score {
+                        (1., 0.)
+                    } else if away_score > home_score {
+                        (0., 1.)
+                    } else {
+                        (0.5, 0.5)
+                    }
+                } else {
+                    has_unplayed_games = true;
+                    continue;
+                };
+                *ratings.get_mut(&game.home_team).unwrap() += update(home_score, home_expected);
+                *ratings.get_mut(&game.away_team).unwrap() += update(away_score, away_expected);
+            }
+            if !has_unplayed_games {
+                matchday_ratings.insert(matchday.number, ratings.clone());
+            }
+        }
+        matchday_ratings
     }
 }
 
@@ -90,7 +144,6 @@ impl FromStr for Season {
             .collect();
 
         let mut matchday = Matchday::new(0);
-        let mut date = NaiveDate::from_ymd(2018, 8, 10);
         let mut matchdays = Vec::new();
         let matchday_regex = Regex::new(r"^Matchday (?P<matchday>\d+)$").unwrap();
         let date_regex = Regex::new(r"^\[\w+ (?P<date>(?P<month>\w+)/\d+)\]$").unwrap();
@@ -103,19 +156,10 @@ impl FromStr for Season {
                     matchdays.push(matchday);
                 }
                 matchday = Matchday::new(captures["matchday"].parse().unwrap());
-            } else if let Some(captures) = date_regex.captures(line) {
-                let year = if ["Aug", "Sep", "Oct", "Nov", "Dec"].contains(&&captures["month"]) {
-                    2018
-                } else {
-                    2019
-                };
-                date = NaiveDate::parse_from_str(
-                    &format!("{} {}", year, &captures["date"]),
-                    "%Y %b/%d",
-                )
-                .unwrap();
+            } else if date_regex.is_match(line) {
+                // pass
             } else {
-                matchday.add_game(date, line.parse()?);
+                matchday.add_game(line.parse()?);
             }
         }
         Ok(Season {
@@ -136,7 +180,7 @@ impl Matchday {
     pub fn new(number: u16) -> Matchday {
         Matchday {
             number: number,
-            games: BTreeMap::new(),
+            games: Vec::new(),
         }
     }
 
@@ -147,11 +191,10 @@ impl Matchday {
     /// ```
     /// use openfootball::Matchday;
     /// let mut matchday = Matchday::new(20);
-    /// matchday.add_game("2018-12-23".parse().unwrap(),
-    ///     "  Everton FC 2-6 Tottenham Hotspur".parse().unwrap());
+    /// matchday.add_game("  Everton FC 2-6 Tottenham Hotspur".parse().unwrap());
     /// ```
-    pub fn add_game(&mut self, date: NaiveDate, game: Game) {
-        self.games.entry(date).or_insert_with(Vec::new).push(game)
+    pub fn add_game(&mut self, game: Game) {
+        self.games.push(game)
     }
 
     /// Returns true if this matchday is empty.
@@ -159,7 +202,7 @@ impl Matchday {
     /// # Examples
     ///
     /// ```
-    /// let matchday = openfootball::Matchday::new(20);
+    /// let mut matchday = openfootball::Matchday::new(20);
     /// assert!(matchday.is_empty());
     /// matchday.add_game("2018-12-23".parse().unwrap(),
     ///     "  Everton FC 2-6 Tottenham Hotspur".parse().unwrap());
@@ -215,6 +258,5 @@ mod tests {
     fn premier_league() {
         let season = Season::from_path("data/eng-england/2018-19/1-premierleague.txt").unwrap();
         assert_eq!("English Premier League 2018/19", season.name());
-        assert!(false);
     }
 }
