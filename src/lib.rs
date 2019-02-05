@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate failure;
-extern crate regex;
 
 use failure::Error;
 use std::path::Path;
@@ -22,8 +21,8 @@ pub struct Matchday {}
 /// A parse error.
 #[derive(Debug, Fail)]
 pub enum ParseError {
-    #[fail(display = "no league name provided: {}", _0)]
-    NoName(String),
+    #[fail(display = "invalid season header: {}", _0)]
+    SeasonHeader(String),
 }
 
 impl Season {
