@@ -117,12 +117,64 @@ impl Season {
         &self.name
     }
 
+    /// Returns this season's score factor.
+    ///
+    /// The score factor is used to increase/decrease the value of a result based upon the point
+    /// differential. A score factor of zero discounts the score difference and only looks at
+    /// win/loss/draw.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use openfootball::Season;
+    /// let season = Season::default();
+    /// assert_eq!(0., season.score_factor());
+    /// ```
+    pub fn score_factor(&self) -> f64 {
+        self.score_factor
+    }
+
     /// Sets the score factor.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use openfootball::Season;
+    /// let mut season = Season::default();
+    /// assert_eq!(0., season.score_factor());
+    /// season.set_score_factor(0.05);
+    /// assert_eq!(0.05, season.score_factor());
+    /// ```
     pub fn set_score_factor(&mut self, score_factor: f64) {
         self.score_factor = score_factor;
     }
+    /// Returns this season's k.
+    ///
+    /// The k controls the sensitivity of the Elo rating to new information. A lower k means less
+    /// "bounciness".
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use openfootball::Season;
+    /// let season = Season::default();
+    /// assert_eq!(32., season.k());
+    /// ```
+    pub fn k(&self) -> f64 {
+        self.k
+    }
 
     /// Sets the k.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use openfootball::Season;
+    /// let mut season = Season::default();
+    /// assert_eq!(32., season.k());
+    /// season.set_k(16.);
+    /// assert_eq!(16., season.k());
+    /// ```
     pub fn set_k(&mut self, k: f64) {
         self.k = k;
     }
@@ -213,6 +265,17 @@ impl FromStr for Season {
             score_factor: DEFAULT_SCORE_FACTOR,
             k: DEFAULT_K,
         })
+    }
+}
+
+impl Default for Season {
+    fn default() -> Season {
+        Season {
+            k: DEFAULT_K,
+            matchdays: Vec::new(),
+            name: String::new(),
+            score_factor: DEFAULT_SCORE_FACTOR,
+        }
     }
 }
 
