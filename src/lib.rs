@@ -3,10 +3,13 @@ extern crate failure;
 #[macro_use]
 extern crate lazy_static;
 extern crate regex;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 
 use failure::Error;
 use regex::Regex;
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -23,14 +26,14 @@ pub struct Season {
 }
 
 /// A matchday.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct Matchday {
     number: u16,
     games: Vec<Game>,
 }
 
 /// A game.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct Game {
     home: String,
     away: String,
@@ -38,18 +41,17 @@ pub struct Game {
 }
 
 /// A game.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct Scores {
     home: u16,
     away: u16,
 }
 
-/// The league standings at a point in time.
-pub type Standings = BTreeMap<String, Position>;
-
 /// The position of a team at a point in time.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize)]
 pub struct Position {
+    team: String,
+    matchday: u16,
     matches_played: u16,
     wins: u16,
     draws: u16,
@@ -115,26 +117,29 @@ impl Season {
     }
 
     /// Returns standings after each match day.
-    pub fn standings(&self) -> BTreeMap<Matchday, Standings> {
-        let mut matchday_standings: BTreeMap<Matchday, Standings> = BTreeMap::new();
+    pub fn standings(&self) -> Vec<Position> {
+        let mut all_positions = Vec::new();
         let mut standings = self.initial_standings();
         for matchday in &self.matchdays {
             for game in matchday.games.iter().filter(|game| game.is_played()) {
                 let mut home = standings.remove(&game.home).unwrap();
                 let mut away = standings.remove(&game.away).unwrap();
                 game.update_positions(&mut home, &mut away);
-                standings.insert(game.home.clone(), home);
-                standings.insert(game.away.clone(), away);
+                home.matchday = matchday.number;
+                standings.insert(game.home.clone(), home.clone());
+                all_positions.push(home);
+                away.matchday = matchday.number;
+                standings.insert(game.away.clone(), away.clone());
+                all_positions.push(away);
             }
-            matchday_standings.insert(matchday.clone(), standings.clone());
         }
-        matchday_standings
+        all_positions
     }
 
-    fn initial_standings(&self) -> Standings {
+    fn initial_standings(&self) -> HashMap<String, Position> {
         self.teams()
             .into_iter()
-            .map(|team| (team, Position::new()))
+            .map(|team| (team.clone(), Position::new(team)))
             .collect()
     }
 }
@@ -172,6 +177,9 @@ impl FromStr for Season {
             } else {
                 matchday.add_game(line.parse()?);
             }
+        }
+        if !matchday.is_empty() {
+            matchdays.push(matchday);
         }
         Ok(Season {
             name: name,
@@ -318,8 +326,9 @@ impl FromStr for Game {
 }
 
 impl Position {
-    fn new() -> Position {
+    fn new(team: String) -> Position {
         Position {
+            team: team,
             elo_rating: INITIAL_ELO_RATING,
             ..Default::default()
         }
