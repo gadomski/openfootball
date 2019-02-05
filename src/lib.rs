@@ -1,7 +1,10 @@
 #[macro_use]
 extern crate failure;
+extern crate regex;
 
+use chrono::NaiveDate;
 use failure::Error;
+use regex::Regex;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -21,8 +24,11 @@ pub struct Matchday {}
 /// A parse error.
 #[derive(Debug, Fail)]
 pub enum ParseError {
-    #[fail(display = "invalid season header: {}", _0)]
-    SeasonHeader(String),
+    #[fail(display = "invalid header content: {}", _0)]
+    InvalidHeader(String),
+
+    #[fail(display = "the input file ended at an unexpected spot")]
+    UnexpectedEndOfFile,
 }
 
 impl Season {
@@ -31,7 +37,7 @@ impl Season {
     /// # Examples
     ///
     /// ```
-    /// let season = openfootball::Season::from_path("../1-premierleague.txt").unwrap();
+    /// let season = openfootball::Season::from_path("data/eng-england/2018-19/1-premierleague.txt").unwrap();
     /// ```
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Season, Error> {
         use std::fs::File;
@@ -52,7 +58,26 @@ impl Season {
 impl FromStr for Season {
     type Err = ParseError;
     fn from_str(s: &str) -> Result<Season, ParseError> {
-        unimplemented!()
+        let mut lines = s.lines();
+        let header = lines.next().ok_or(ParseError::UnexpectedEndOfFile)?;
+        if header != "###################################" {
+            return Err(ParseError::InvalidHeader(header.to_string()));
+        }
+        let name: String = lines
+            .next()
+            .ok_or(ParseError::UnexpectedEndOfFile)?
+            .chars()
+            .skip(2)
+            .collect();
+
+        let mut matchday = 0;
+        let mut date = NaiveDate::from_ymd(2018, 8, 10);
+        let mut matchdays = Vec::new();
+        for line in lines {}
+        Ok(Season {
+            name: name,
+            matchdays: matchdays,
+        })
     }
 }
 
