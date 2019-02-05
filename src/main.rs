@@ -1,12 +1,13 @@
 extern crate clap;
+extern crate csv;
 extern crate failure;
 extern crate openfootball;
-extern crate serde;
-extern crate serde_json;
 
 use clap::{App, Arg};
+use csv::Writer;
 use failure::Error;
 use openfootball::Season;
+use std::io;
 
 fn main() -> Result<(), Error> {
     let matches = App::new("openfootball")
@@ -39,6 +40,9 @@ fn main() -> Result<(), Error> {
         season.set_k(k.parse()?);
     }
     let positions = season.positions();
-    println!("{}", serde_json::to_string_pretty(&positions)?);
+    let mut writer = Writer::from_writer(io::stdout());
+    for position in positions {
+        writer.serialize(position)?;
+    }
     Ok(())
 }
