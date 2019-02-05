@@ -1,3 +1,5 @@
+//! A library for using the data contained in the openfootball text files.
+
 #[macro_use]
 extern crate failure;
 #[macro_use]
@@ -30,14 +32,14 @@ pub struct Season {
     score_factor: f64,
 }
 
-/// A matchday.
+/// A matchday in the season. Games from the same matchday can occur on different dates.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct Matchday {
     number: u16,
     games: Vec<Game>,
 }
 
-/// A game.
+/// A football game.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct Game {
     home: String,
@@ -45,14 +47,14 @@ pub struct Game {
     scores: Option<Scores>,
 }
 
-/// A game.
+/// The final scores of a football game.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct Scores {
     home: u16,
     away: u16,
 }
 
-/// The position of a team at a point in time.
+/// The position of a team at the end of a given matchday.
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct Position {
     team: String,
@@ -68,7 +70,7 @@ pub struct Position {
     elo_rating: i16,
 }
 
-/// A parse error.
+/// The errors that can occur when parsing text data.
 #[derive(Debug, Fail)]
 pub enum ParseError {
     #[fail(display = "invalid header content: {}", _0)]
@@ -87,7 +89,8 @@ impl Season {
     /// # Examples
     ///
     /// ```
-    /// let season = openfootball::Season::from_path("data/eng-england/2018-19/1-premierleague.txt").unwrap();
+    /// use openfootball::Season;
+    /// let season = Season::from_path("data/eng-england/2018-19/1-premierleague.txt").unwrap();
     /// ```
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Season, Error> {
         use std::fs::File;
@@ -102,6 +105,14 @@ impl Season {
     }
 
     /// Returns this season's name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use openfootball::Season;
+    /// let season = Season::from_path("data/eng-england/2018-19/1-premierleague.txt").unwrap();
+    /// assert_eq!("English Premier League 2018/19", season.name());
+    /// ```
     pub fn name(&self) -> &str {
         &self.name
     }
