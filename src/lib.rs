@@ -13,8 +13,9 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::str::FromStr;
 
+const DEFAULT_K: f64 = 32.;
+const DEFAULT_SCORE_FACTOR: f64 = 0.;
 const INITIAL_ELO_RATING: i16 = 1500;
-const K: f64 = 32.;
 
 /// A season of football data.
 ///
@@ -23,6 +24,8 @@ const K: f64 = 32.;
 pub struct Season {
     matchdays: Vec<Matchday>,
     name: String,
+    score_factor: f64,
+    k: f64,
 }
 
 /// A matchday.
@@ -101,6 +104,16 @@ impl Season {
         &self.name
     }
 
+    /// Sets the score factor.
+    pub fn set_score_factor(&mut self, score_factor: f64) {
+        self.score_factor = score_factor;
+    }
+
+    /// Sets the k.
+    pub fn set_k(&mut self, k: f64) {
+        self.k = k;
+    }
+
     /// Returns this season's teams in sorted order.
     pub fn teams(&self) -> Vec<String> {
         use std::collections::HashSet;
@@ -124,7 +137,7 @@ impl Season {
             for game in matchday.games.iter().filter(|game| game.is_played()) {
                 let mut home = standings.remove(&game.home).unwrap();
                 let mut away = standings.remove(&game.away).unwrap();
-                game.update_positions(&mut home, &mut away);
+                game.update_positions(&mut home, &mut away, self.score_factor, self.k);
                 home.matchday = matchday.number;
                 standings.insert(game.home.clone(), home.clone());
                 all_positions.push(home);
@@ -184,6 +197,8 @@ impl FromStr for Season {
         Ok(Season {
             name: name,
             matchdays: matchdays,
+            score_factor: DEFAULT_SCORE_FACTOR,
+            k: DEFAULT_K,
         })
     }
 }
@@ -236,7 +251,13 @@ impl Game {
         self.scores.is_some()
     }
 
-    fn update_positions(&self, home: &mut Position, away: &mut Position) {
+    fn update_positions(
+        &self,
+        home: &mut Position,
+        away: &mut Position,
+        score_factor: f64,
+        k: f64,
+    ) {
         let scores = if let Some(scores) = &self.scores {
             scores
         } else {
@@ -252,16 +273,17 @@ impl Game {
         away.goals_against += scores.home;
         away.goal_differential += i32::from(scores.away) - i32::from(scores.home);
 
+        let score_adjustment = score_factor * (f64::from(scores.home) - f64::from(scores.away));
         let (home_score, away_score) = if scores.home > scores.away {
             home.points += 3;
             home.wins += 1;
             away.losses += 1;
-            (1., 0.)
+            (1. + score_adjustment, 0. - score_adjustment)
         } else if scores.home < scores.away {
             away.points += 3;
             home.losses += 1;
             away.wins += 1;
-            (0., 1.)
+            (0. - score_adjustment, 1. + score_adjustment)
         } else {
             home.points += 1;
             home.draws += 1;
@@ -273,8 +295,8 @@ impl Game {
         let expected = |a: &Position, b: &Position| {
             1. / (1. + 10f64.powf((f64::from(b.elo_rating) - f64::from(a.elo_rating)) / 400.))
         };
-        home.elo_rating += (K * (home_score - expected(home, away))).round() as i16;
-        away.elo_rating += (K * (away_score - expected(away, home))).round() as i16;
+        home.elo_rating += (k * (home_score - expected(home, away))).round() as i16;
+        away.elo_rating += (k * (away_score - expected(away, home))).round() as i16;
     }
 }
 
