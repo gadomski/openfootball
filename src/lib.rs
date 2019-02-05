@@ -29,10 +29,16 @@ pub struct Matchday {
 /// A game.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Game {
-    home_team: String,
-    away_team: String,
-    home_score: Option<u16>,
-    away_score: Option<u16>,
+    home: String,
+    away: String,
+    scores: Option<Scores>,
+}
+
+/// A game.
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Scores {
+    home: u16,
+    away: u16,
 }
 
 /// A parse error.
@@ -79,8 +85,8 @@ impl Season {
         let mut teams = HashSet::new();
         for matchday in &self.matchdays {
             for game in &matchday.games {
-                teams.insert(game.home_team.to_string());
-                teams.insert(game.away_team.to_string());
+                teams.insert(game.home.to_string());
+                teams.insert(game.away.to_string());
             }
         }
         let mut teams: Vec<String> = teams.drain().collect();
@@ -98,27 +104,11 @@ impl Season {
         for matchday in &self.matchdays {
             let mut has_unplayed_games = false;
             for game in &matchday.games {
-                let home_rating = f64::from(ratings[&game.home_team]);
-                let away_rating = f64::from(ratings[&game.away_team]);
+                let home_rating = f64::from(ratings[&game.home]);
+                let away_rating = f64::from(ratings[&game.home]);
                 let home_expected = expected_score(home_rating, away_rating);
                 let away_expected = expected_score(home_rating, away_rating);
-                let (home_score, away_score) = if let Some((home_score, away_score)) = game
-                    .home_score
-                    .and_then(|home| game.away_score.map(|away| (home, away)))
-                {
-                    if home_score > away_score {
-                        (1., 0.)
-                    } else if away_score > home_score {
-                        (0., 1.)
-                    } else {
-                        (0.5, 0.5)
-                    }
-                } else {
-                    has_unplayed_games = true;
-                    continue;
-                };
-                *ratings.get_mut(&game.home_team).unwrap() += update(home_score, home_expected);
-                *ratings.get_mut(&game.away_team).unwrap() += update(away_score, away_expected);
+                unimplemented!()
             }
             if !has_unplayed_games {
                 matchday_ratings.insert(matchday.number, ratings.clone());
@@ -220,28 +210,38 @@ impl FromStr for Game {
             static ref RE: Regex = Regex::new(
                 r"(?x)^
             \s+
-            (?P<home_team>.*?)
+            (?P<home>.*?)
             \s+
             (?P<home_score>\d+)?
             -
             (?P<away_score>\d+)?
             \s
-            (?P<away_team>.*)
+            (?P<away>.*)
             $
             ",
             )
             .unwrap();
         }
         if let Some(captures) = RE.captures(s) {
+            let home = captures["home"].to_string();
+            let away = captures["away"].to_string();
+            let scores = if let Some((home_score, away_score)) =
+                captures.name("home_score").and_then(|home_score| {
+                    captures
+                        .name("away_score")
+                        .map(|away_score| (home_score, away_score))
+                }) {
+                Some(Scores {
+                    home: home_score.as_str().parse().unwrap(),
+                    away: away_score.as_str().parse().unwrap(),
+                })
+            } else {
+                None
+            };
             Ok(Game {
-                home_team: captures["home_team"].to_string(),
-                home_score: captures
-                    .name("home_score")
-                    .map(|m| m.as_str().parse().unwrap()),
-                away_team: captures["away_team"].to_string(),
-                away_score: captures
-                    .name("away_score")
-                    .map(|m| m.as_str().parse().unwrap()),
+                home: home,
+                away: away,
+                scores: scores,
             })
         } else {
             Err(ParseError::InvalidGame(s.to_string()))
