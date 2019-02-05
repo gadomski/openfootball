@@ -10,6 +10,9 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::str::FromStr;
 
+const INITIAL_ELO_RATING: i16 = 1500;
+const K: f64 = 32.;
+
 /// A season of football data.
 ///
 /// Data are provided by https://github.com/openfootball/eng-england.
@@ -20,14 +23,14 @@ pub struct Season {
 }
 
 /// A matchday.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Matchday {
     number: u16,
     games: Vec<Game>,
 }
 
 /// A game.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Game {
     home: String,
     away: String,
@@ -35,10 +38,27 @@ pub struct Game {
 }
 
 /// A game.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Scores {
     home: u16,
     away: u16,
+}
+
+/// The league standings at a point in time.
+pub type Standings = BTreeMap<String, Position>;
+
+/// The position of a team at a point in time.
+#[derive(Clone, Debug, Default)]
+pub struct Position {
+    matches_played: u16,
+    wins: u16,
+    draws: u16,
+    losses: u16,
+    goals_for: u16,
+    goals_against: u16,
+    goal_differential: i32,
+    points: u16,
+    elo_rating: i16,
 }
 
 /// A parse error.
@@ -79,7 +99,7 @@ impl Season {
         &self.name
     }
 
-    /// Returns this season's teams.
+    /// Returns this season's teams in sorted order.
     pub fn teams(&self) -> Vec<String> {
         use std::collections::HashSet;
         let mut teams = HashSet::new();
@@ -94,27 +114,28 @@ impl Season {
         teams
     }
 
-    /// Returns elo ratings for each match day.
-    pub fn ratings(&self) -> BTreeMap<u16, BTreeMap<String, i32>> {
-        let mut matchday_ratings: BTreeMap<u16, BTreeMap<String, i32>> = BTreeMap::new();
-        let mut ratings: BTreeMap<String, i32> =
-            self.teams().into_iter().map(|team| (team, 1500)).collect();
-        let expected_score = |a, b| 1. / (1. + 10f64.powf((b - a) / 400.));
-        let update = |score: f64, expected: f64| (32. * (score - expected)).round() as i32;
+    /// Returns standings after each match day.
+    pub fn standings(&self) -> BTreeMap<Matchday, Standings> {
+        let mut matchday_standings: BTreeMap<Matchday, Standings> = BTreeMap::new();
+        let mut standings = self.initial_standings();
         for matchday in &self.matchdays {
-            let mut has_unplayed_games = false;
-            for game in &matchday.games {
-                let home_rating = f64::from(ratings[&game.home]);
-                let away_rating = f64::from(ratings[&game.home]);
-                let home_expected = expected_score(home_rating, away_rating);
-                let away_expected = expected_score(home_rating, away_rating);
-                unimplemented!()
+            for game in matchday.games.iter().filter(|game| game.is_played()) {
+                let mut home = standings.remove(&game.home).unwrap();
+                let mut away = standings.remove(&game.away).unwrap();
+                game.update_positions(&mut home, &mut away);
+                standings.insert(game.home.clone(), home);
+                standings.insert(game.away.clone(), away);
             }
-            if !has_unplayed_games {
-                matchday_ratings.insert(matchday.number, ratings.clone());
-            }
+            matchday_standings.insert(matchday.clone(), standings.clone());
         }
-        matchday_ratings
+        matchday_standings
+    }
+
+    fn initial_standings(&self) -> Standings {
+        self.teams()
+            .into_iter()
+            .map(|team| (team, Position::new()))
+            .collect()
     }
 }
 
@@ -202,6 +223,47 @@ impl Matchday {
     }
 }
 
+impl Game {
+    fn is_played(&self) -> bool {
+        self.scores.is_some()
+    }
+
+    fn update_positions(&self, home: &mut Position, away: &mut Position) {
+        let scores = if let Some(scores) = &self.scores {
+            scores
+        } else {
+            return;
+        };
+
+        home.matches_played += 1;
+        home.goals_for += scores.home;
+        home.goals_against += scores.away;
+        home.goal_differential += i32::from(scores.home) - i32::from(scores.away);
+        away.matches_played += 1;
+        away.goals_for += scores.away;
+        away.goals_against += scores.home;
+        away.goal_differential += i32::from(scores.away) - i32::from(scores.home);
+
+        let (home_score, away_score) = if scores.home > scores.away {
+            home.points += 3;
+            (1., 0.)
+        } else if scores.home < scores.away {
+            away.points += 1;
+            (0., 1.)
+        } else {
+            home.points += 1;
+            away.points += 1;
+            (0.5, 0.5)
+        };
+
+        let expected = |a: &Position, b: &Position| {
+            1. / (1. + 10f64.powf((f64::from(b.elo_rating) - f64::from(a.elo_rating)) / 400.))
+        };
+        home.elo_rating += (K * (home_score - expected(home, away))).round() as i16;
+        away.elo_rating += (K * (away_score - expected(away, home))).round() as i16;
+    }
+}
+
 impl FromStr for Game {
     type Err = ParseError;
 
@@ -245,6 +307,15 @@ impl FromStr for Game {
             })
         } else {
             Err(ParseError::InvalidGame(s.to_string()))
+        }
+    }
+}
+
+impl Position {
+    fn new() -> Position {
+        Position {
+            elo_rating: INITIAL_ELO_RATING,
+            ..Default::default()
         }
     }
 }
