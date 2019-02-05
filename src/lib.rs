@@ -180,6 +180,17 @@ impl Season {
     }
 
     /// Returns this season's teams in sorted order.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use openfootball::Season;
+    /// let season = Season::from_path("data/eng-england/2018-19/1-premierleague.txt").unwrap();
+    /// let teams = season.teams();
+    /// assert_eq!(20, teams.len());
+    /// assert_eq!("AFC Bournemouth", teams[0]);
+    /// assert_eq!("Wolverhampton Wanderers", teams[19]);
+    /// ```
     pub fn teams(&self) -> Vec<String> {
         use std::collections::HashSet;
         let mut teams = HashSet::new();
@@ -390,7 +401,8 @@ impl FromStr for Game {
             -
             (?P<away_score>\d+)?
             \s
-            (?P<away>.*)
+            (?P<away>.*?)
+            \s*
             $
             ",
             )
