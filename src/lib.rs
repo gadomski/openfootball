@@ -309,7 +309,7 @@ impl FromStr for Game {
         lazy_static! {
             static ref RE: Regex = Regex::new(
                 r"(?x)^
-            \s+
+            \s*
             (?P<home>.*?)
             \s+
             (?P<home_score>\d+)?
