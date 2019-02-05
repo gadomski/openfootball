@@ -205,12 +205,21 @@ impl Season {
         teams
     }
 
-    /// Returns standings after each match day.
-    pub fn standings(&self) -> Vec<Position> {
+    /// Calculates the position of each team on each match day.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use openfootball::Season;
+    /// let season = Season::from_path("data/eng-england/2018-19/1-premierleague.txt").unwrap();
+    /// let positions = season.positions();
+    /// assert_eq!(760, positions.len());
+    /// ```
+    pub fn positions(&self) -> Vec<Position> {
         let mut all_positions = Vec::new();
         let mut standings = self.initial_standings();
         for matchday in &self.matchdays {
-            for game in matchday.games.iter().filter(|game| game.is_played()) {
+            for game in matchday.games.iter() {
                 let mut home = standings.remove(&game.home).unwrap();
                 let mut away = standings.remove(&game.away).unwrap();
                 game.update_positions(&mut home, &mut away, self.score_factor, self.k);
@@ -312,7 +321,7 @@ impl Matchday {
     /// ```
     /// use openfootball::Matchday;
     /// let mut matchday = Matchday::new(20);
-    /// matchday.add_game("  Everton FC 2-6 Tottenham Hotspur".parse().unwrap());
+    /// matchday.add_game("Everton FC 2-6 Tottenham Hotspur".parse().unwrap());
     /// ```
     pub fn add_game(&mut self, game: Game) {
         self.games.push(game)
@@ -334,10 +343,6 @@ impl Matchday {
 }
 
 impl Game {
-    fn is_played(&self) -> bool {
-        self.scores.is_some()
-    }
-
     fn update_positions(
         &self,
         home: &mut Position,

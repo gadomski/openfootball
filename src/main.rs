@@ -38,7 +38,7 @@ fn main() -> Result<(), Error> {
     if let Some(k) = matches.value_of("k") {
         season.set_k(k.parse()?);
     }
-    let standings = season.standings();
-    println!("{}", serde_json::to_string_pretty(&standings)?);
+    let positions = season.positions();
+    println!("{}", serde_json::to_string_pretty(&positions)?);
     Ok(())
 }
