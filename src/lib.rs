@@ -1,5 +1,8 @@
+extern crate chrono;
 #[macro_use]
 extern crate failure;
+#[macro_use]
+extern crate lazy_static;
 extern crate regex;
 
 use chrono::NaiveDate;
@@ -171,8 +174,9 @@ impl FromStr for Game {
     type Err = ParseError;
 
     fn from_str(s: &str) -> Result<Game, ParseError> {
-        let regex = Regex::new(
-            r"(?x)^
+        lazy_static! {
+            static ref RE: Regex = Regex::new(
+                r"(?x)^
             \s+
             (?P<home_team>.*?)
             \s+
@@ -183,9 +187,10 @@ impl FromStr for Game {
             (?P<away_team>.*)
             $
             ",
-        )
-        .unwrap();
-        if let Some(captures) = regex.captures(s) {
+            )
+            .unwrap();
+        }
+        if let Some(captures) = RE.captures(s) {
             Ok(Game {
                 home_team: captures["home_team"].to_string(),
                 home_score: captures
