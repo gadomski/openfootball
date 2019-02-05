@@ -204,8 +204,7 @@ impl Matchday {
     /// ```
     /// let mut matchday = openfootball::Matchday::new(20);
     /// assert!(matchday.is_empty());
-    /// matchday.add_game("2018-12-23".parse().unwrap(),
-    ///     "  Everton FC 2-6 Tottenham Hotspur".parse().unwrap());
+    /// matchday.add_game("  Everton FC 2-6 Tottenham Hotspur".parse().unwrap());
     /// assert!(!matchday.is_empty());
     /// ```
     pub fn is_empty(&self) -> bool {
