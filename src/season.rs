@@ -92,4 +92,17 @@ impl Season {
 
         Ok(Season { games: games })
     }
+
+    /// Returns this season's played games as a slice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use openfootball::Season;
+    /// let season = Season::from_path("tests/data/pl.txt").unwrap();
+    /// let games = season.games();
+    /// ```
+    pub fn games(&self) -> &[Game] {
+        &self.games
+    }
 }
