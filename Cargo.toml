@@ -5,10 +5,10 @@ authors = ["Pete Gadomski <pete.gadomski@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-clap = "*"
-csv = "*"
-failure = "*"
-lazy_static = "*"
-serde = "*"
-serde_derive = "*"
-regex = "*"
+clap = "2.32"
+csv = "1.0"
+failure = "0.1"
+lazy_static = "1.2"
+regex = "1.1"
+serde = "1.0"
+serde_derive = "1.0"
