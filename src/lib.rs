@@ -132,7 +132,7 @@ impl Season {
                         let away = captures.name("away").unwrap().as_str();
                         games.push(
                             Game::new(matchday, date, home, away)
-                                .with_score(home_score, away_score),
+                                .with_scores(home_score, away_score),
                         );
                     }
                 }
@@ -188,13 +188,13 @@ impl Season {
 }
 
 impl Game {
-    /// Creates a new game.
+    /// Creates a new game for a given matdhay, date, home, and away teams.
     ///
     /// # Examples
     ///
     /// ```
     /// use openfootball::Game;
-    /// let game = Game::new(1, "2018-09-01".parse().unwrap(), "THFC", "LFC");
+    /// let game = Game::new(1, "2018-08-11".parse().unwrap(), "Newcastle United", "Tottenham Hotspur");
     /// ```
     pub fn new(matchday: u16, date: NaiveDate, home: &str, away: &str) -> Game {
         Game {
@@ -207,40 +207,54 @@ impl Game {
         }
     }
 
-    /// Sets this game's score.
+    /// Sets the scores for a game.
     ///
     /// # Examples
     ///
     /// ```
     /// use openfootball::Game;
-    /// let game = Game::new(1, "2018-09-01".parse().unwrap(), "THFC", "LFC")
-    ///     .with_score(2, 1);
+    /// let game = Game::new(1, "2018-08-11".parse().unwrap(), "Newcastle United", "Tottenham Hotspur")
+    ///     .with_scores(1, 2);
     /// ```
-    pub fn with_score(mut self, home: u16, away: u16) -> Game {
+    pub fn with_scores(mut self, home: u16, away: u16) -> Game {
         self.home_score = Some(home);
         self.away_score = Some(away);
         self
     }
 
-    /// Returns the home team.
+    /// Returns the home team's name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use openfootball::Game;
+    /// let game = Game::new(1, "2018-08-11".parse().unwrap(), "Newcastle United", "Tottenham Hotspur");
+    /// assert_eq!("Newcastle United", game.home());
+    /// ```
     pub fn home(&self) -> &str {
         &self.home
     }
 
-    /// Returns the away team.
+    /// Returns the away team's name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use openfootball::Game;
+    /// let game = Game::new(1, "2018-08-11".parse().unwrap(), "Newcastle United", "Tottenham Hotspur");
+    /// assert_eq!("Tottenham Hotspur", game.away());
+    /// ```
     pub fn away(&self) -> &str {
         &self.away
     }
 
-    /// Updates the stats.
-    pub fn update_stats(&self, stats: &mut HashMap<String, Stats>) {
+    fn update_stats(&self, stats: &mut HashMap<String, Stats>) {
         unimplemented!()
     }
 }
 
 impl Stats {
-    /// Creates a new stats with the provided initial elo rating.
-    pub fn new(initial_elo_rating: i32) -> Stats {
+    fn new(initial_elo_rating: i32) -> Stats {
         Stats {
             wins: 0,
             draws: 0,
@@ -249,5 +263,16 @@ impl Stats {
             goals_against: 0,
             elo_rating: initial_elo_rating,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn season_game() {
+        let season = Season::from_path("tests/data/pl.txt").unwrap();
+        assert_eq!(279, season.games().len());
     }
 }
