@@ -276,35 +276,56 @@ impl Game {
         } else {
             return Ok(None);
         };
-        let mut update =
-            |team: &str, goals_for: u16, goals_against: u16| -> Result<Standing, Error> {
-                let stats = stats
-                    .get_mut(team)
-                    .ok_or(Error::MissingTeam(team.to_string()))?;
-                stats.goals_for += goals_for;
-                stats.goals_against += goals_against;
-                if goals_for > goals_against {
-                    stats.wins += 1;
-                } else if goals_for < goals_against {
-                    stats.losses += 1;
-                } else {
-                    stats.draws += 1;
-                }
-
-                Ok(Standing {
-                    matchweek: self.matchweek,
-                    date: self.date,
-                    team: team.to_string(),
-                    wins: stats.wins,
-                    draws: stats.draws,
-                    losses: stats.losses,
-                    goals_for: stats.goals_for,
-                    goals_against: stats.goals_against,
-                    elo_rating: stats.elo_rating,
-                })
+        let home_rating = f64::from(
+            stats
+                .get(&self.home)
+                .ok_or(Error::MissingTeam(self.home.to_string()))?
+                .elo_rating,
+        );
+        let away_rating = f64::from(
+            stats
+                .get(&self.home)
+                .ok_or(Error::MissingTeam(self.home.to_string()))?
+                .elo_rating,
+        );
+        let mut update = |team: &str,
+                          goals_for: u16,
+                          goals_against: u16,
+                          expected: f64|
+         -> Result<Standing, Error> {
+            let stats = stats
+                .get_mut(team)
+                .ok_or(Error::MissingTeam(team.to_string()))?;
+            stats.goals_for += goals_for;
+            stats.goals_against += goals_against;
+            let actual = if goals_for > goals_against {
+                stats.wins += 1;
+                1.
+            } else if goals_for < goals_against {
+                stats.losses += 1;
+                0.
+            } else {
+                stats.draws += 1;
+                0.5
             };
-        let home = update(&self.home, scores.home, scores.away)?;
-        let away = update(&self.away, scores.away, scores.home)?;
+            stats.elo_rating += (k * (actual - expected)).round() as i32;
+
+            Ok(Standing {
+                matchweek: self.matchweek,
+                date: self.date,
+                team: team.to_string(),
+                wins: stats.wins,
+                draws: stats.draws,
+                losses: stats.losses,
+                goals_for: stats.goals_for,
+                goals_against: stats.goals_against,
+                elo_rating: stats.elo_rating,
+            })
+        };
+        let expected_home = 1. / (1. + 10f64.powf((away_rating - home_rating) / 400.));
+        let expected_away = 1. - expected_home;
+        let home = update(&self.home, scores.home, scores.away, expected_home)?;
+        let away = update(&self.away, scores.away, scores.home, expected_away)?;
         Ok(Some((home, away)))
     }
 }
