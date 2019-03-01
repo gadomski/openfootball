@@ -21,8 +21,8 @@ fn main() -> Result<(), Error> {
         .get_matches();
     let season = Season::from_path(matches.value_of("INFILE").unwrap())?;
     let mut writer = Writer::from_writer(io::stdout());
-    for game in season.games() {
-        writer.serialize(game)?;
+    for standing in season.standings(1500, 32.) {
+        writer.serialize(standing)?;
     }
     Ok(())
 }

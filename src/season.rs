@@ -1,4 +1,4 @@
-use super::Game;
+use super::{Game, Standing, Stats};
 use std::path::Path;
 
 /// A season of football data.
@@ -102,5 +102,34 @@ impl Season {
     /// ```
     pub fn games(&self) -> &[Game] {
         &self.games
+    }
+
+    /// Returns this season's standings.
+    ///
+    /// These are calculated from all played games.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use openfootball::Season;
+    /// let season = Season::from_path("tests/data/pl.txt").unwrap();
+    /// let standings = season.standings(1500, 32.);
+    /// ```
+    pub fn standings(&self, initial_elo_rating: i32, k: f64) -> Vec<Standing> {
+        use std::collections::{HashMap, HashSet};
+
+        let mut teams = HashSet::new();
+        for game in &self.games {
+            teams.insert(game.home().to_string());
+            teams.insert(game.away().to_string());
+        }
+        let mut stats: HashMap<_, _> = teams
+            .iter()
+            .map(|team| (team.to_string(), Stats::new(initial_elo_rating)))
+            .collect();
+        for game in &self.games {
+            game.update_stats(&mut stats);
+        }
+        unimplemented!()
     }
 }

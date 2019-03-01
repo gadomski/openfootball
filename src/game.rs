@@ -1,4 +1,6 @@
+use super::Stats;
 use chrono::NaiveDate;
+use std::collections::HashMap;
 
 /// A football game.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
@@ -44,5 +46,20 @@ impl Game {
         self.home_score = Some(home);
         self.away_score = Some(away);
         self
+    }
+
+    /// Returns the home team.
+    pub fn home(&self) -> &str {
+        &self.home
+    }
+
+    /// Returns the away team.
+    pub fn away(&self) -> &str {
+        &self.away
+    }
+
+    /// Updates the stats.
+    pub fn update_stats(&self, stats: &mut HashMap<String, Stats>) {
+        unimplemented!()
     }
 }
