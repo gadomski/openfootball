@@ -191,17 +191,7 @@ impl Season {
     /// let standings = season.standings(1500, 32.);
     /// ```
     pub fn standings(&self, initial_elo_rating: i32, k: f64) -> Result<Vec<Standing>, Error> {
-        use std::collections::{HashMap, HashSet};
-
-        let mut teams = HashSet::new();
-        for game in &self.games {
-            teams.insert(game.home().to_string());
-            teams.insert(game.away().to_string());
-        }
-        let mut stats: HashMap<_, _> = teams
-            .iter()
-            .map(|team| (team.to_string(), Stats::new(initial_elo_rating)))
-            .collect();
+        let mut stats = self.stats(initial_elo_rating);
         let mut standings = Vec::new();
         for game in &self.games {
             if let Some((home, away)) = game.update_stats(&mut stats, k)? {
@@ -227,8 +217,33 @@ impl Season {
         k: f64,
         matchweek: u16,
     ) -> Result<Vec<Odds>, Error> {
-        let standings = self.standings(initial_elo_rating, k)?;
-        unimplemented!()
+        let mut stats = self.stats(initial_elo_rating);
+        for game in self.games.iter().filter(|game| game.matchweek < matchweek) {
+            game.update_stats(&mut stats, k)?;
+        }
+        self.games
+            .iter()
+            .filter_map(|game| {
+                if game.matchweek == matchweek {
+                    unimplemented!()
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    fn stats(&self, initial_elo_rating: i32) -> HashMap<String, Stats> {
+        use std::collections::HashSet;
+        let mut teams = HashSet::new();
+        for game in &self.games {
+            teams.insert(game.home().to_string());
+            teams.insert(game.away().to_string());
+        }
+        teams
+            .iter()
+            .map(|team| (team.to_string(), Stats::new(initial_elo_rating)))
+            .collect()
     }
 }
 
