@@ -385,4 +385,16 @@ mod tests {
         let season = Season::from_path("tests/data/pl.txt").unwrap();
         assert_eq!(279, season.games().len());
     }
+
+    #[test]
+    fn standings() {
+        let season = Season::from_path("tests/data/pl.txt").unwrap();
+        let standings = season.standings(1500, 32.).unwrap();
+        let first = &standings[0];
+        assert_eq!("Manchester United", first.team);
+        assert_eq!(1516, first.elo_rating);
+        let last = &standings[standings.len() - 1];
+        assert_eq!("West Ham United", last.team);
+        assert_eq!(1483, last.elo_rating);
+    }
 }
