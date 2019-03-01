@@ -26,7 +26,7 @@ pub struct Season {
 #[derive(Debug)]
 pub struct Game {
     date: NaiveDate,
-    matchday: u16,
+    matchweek: u16,
     home: String,
     away: String,
     scores: Option<Scores>,
@@ -44,12 +44,16 @@ pub struct Standing {
     team: String,
     date: NaiveDate,
     matchweek: u16,
-    #[serde(flatten)]
-    stats: Stats,
+    wins: u16,
+    draws: u16,
+    losses: u16,
+    goals_for: u16,
+    goals_against: u16,
+    elo_rating: i32,
 }
 
 /// A team's accumulated statistics throughout the season.
-#[derive(Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub struct Stats {
     wins: u16,
     draws: u16,
@@ -88,8 +92,8 @@ impl Season {
 
         let mut year = 0i32;
         let header_regex = Regex::new(r"^# (?P<name>.+) (?P<year>\d{4})/\d{2}$").unwrap();
-        let mut matchday = 0u16;
-        let matchday_regex = Regex::new(r"^Matchday (?P<matchday>\d+)$").unwrap();
+        let mut matchweek = 0u16;
+        let matchday_regex = Regex::new(r"^Matchday (?P<matchweek>\d+)$").unwrap();
         let mut date = Utc::today().naive_utc();
         let date_regex =
             Regex::new(r"^\[[[:alpha:]]{3} (?P<month>[[:alpha:]]{3})/(?P<day>\d+)\]$").unwrap();
@@ -118,7 +122,7 @@ impl Season {
             } else if let Some(captures) = header_regex.captures(line) {
                 year = captures.name("year").unwrap().as_str().parse()?;
             } else if let Some(captures) = matchday_regex.captures(line) {
-                matchday = captures.name("matchday").unwrap().as_str().parse()?;
+                matchweek = captures.name("matchweek").unwrap().as_str().parse()?;
             } else if let Some(captures) = date_regex.captures(line) {
                 date = NaiveDate::parse_from_str(
                     &format!(
@@ -140,7 +144,7 @@ impl Season {
                         let home = captures.name("home").unwrap().as_str();
                         let away = captures.name("away").unwrap().as_str();
                         games.push(
-                            Game::new(matchday, date, home, away)
+                            Game::new(matchweek, date, home, away)
                                 .with_scores(home_score, away_score),
                         );
                     }
@@ -189,10 +193,14 @@ impl Season {
             .iter()
             .map(|team| (team.to_string(), Stats::new(initial_elo_rating)))
             .collect();
+        let mut standings = Vec::new();
         for game in &self.games {
-            game.update_stats(&mut stats, k)?;
+            if let Some((home, away)) = game.update_stats(&mut stats, k)? {
+                standings.push(home);
+                standings.push(away);
+            }
         }
-        unimplemented!()
+        Ok(standings)
     }
 }
 
@@ -205,9 +213,9 @@ impl Game {
     /// use openfootball::Game;
     /// let game = Game::new(1, "2018-08-11".parse().unwrap(), "Newcastle United", "Tottenham Hotspur");
     /// ```
-    pub fn new(matchday: u16, date: NaiveDate, home: &str, away: &str) -> Game {
+    pub fn new(matchweek: u16, date: NaiveDate, home: &str, away: &str) -> Game {
         Game {
-            matchday: matchday,
+            matchweek: matchweek,
             date: date,
             home: home.to_string(),
             away: away.to_string(),
@@ -258,8 +266,46 @@ impl Game {
         &self.away
     }
 
-    fn update_stats(&self, stats: &mut HashMap<String, Stats>, k: f64) -> Result<(), Error> {
-        Ok(())
+    fn update_stats(
+        &self,
+        stats: &mut HashMap<String, Stats>,
+        k: f64,
+    ) -> Result<Option<(Standing, Standing)>, Error> {
+        let scores = if let Some(scores) = &self.scores {
+            scores
+        } else {
+            return Ok(None);
+        };
+        let mut update =
+            |team: &str, goals_for: u16, goals_against: u16| -> Result<Standing, Error> {
+                let stats = stats
+                    .get_mut(team)
+                    .ok_or(Error::MissingTeam(team.to_string()))?;
+                stats.goals_for += goals_for;
+                stats.goals_against += goals_against;
+                if goals_for > goals_against {
+                    stats.wins += 1;
+                } else if goals_for < goals_against {
+                    stats.losses += 1;
+                } else {
+                    stats.draws += 1;
+                }
+
+                Ok(Standing {
+                    matchweek: self.matchweek,
+                    date: self.date,
+                    team: team.to_string(),
+                    wins: stats.wins,
+                    draws: stats.draws,
+                    losses: stats.losses,
+                    goals_for: stats.goals_for,
+                    goals_against: stats.goals_against,
+                    elo_rating: stats.elo_rating,
+                })
+            };
+        let home = update(&self.home, scores.home, scores.away)?;
+        let away = update(&self.away, scores.away, scores.home)?;
+        Ok(Some((home, away)))
     }
 }
 
