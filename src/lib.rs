@@ -284,8 +284,8 @@ impl Game {
         );
         let away_rating = f64::from(
             stats
-                .get(&self.home)
-                .ok_or(Error::MissingTeam(self.home.to_string()))?
+                .get(&self.away)
+                .ok_or(Error::MissingTeam(self.away.to_string()))?
                 .elo_rating,
         );
         let mut update = |team: &str,
