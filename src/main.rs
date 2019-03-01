@@ -41,7 +41,7 @@ fn main() -> Result<(), Error> {
         }
     } else if let Some(matches) = matches.subcommand_matches("odds") {
         let season = Season::from_path(matches.value_of("INFILE").unwrap())?;
-        for odds in season.odds(1500, 32., matches.value_of("MATCHWEEK").unwrap().parse()?) {
+        for odds in season.odds(1500, 32., matches.value_of("MATCHWEEK").unwrap().parse()?)? {
             writer.serialize(odds)?;
         }
     }
