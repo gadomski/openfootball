@@ -146,18 +146,18 @@ impl Season {
                     date = date.with_year(year + 1).unwrap();
                 }
             } else if let Some(captures) = game_regex.captures(line) {
-                if let Some(home_score) = captures.name("home_score") {
+                let home = captures.name("home").unwrap().as_str();
+                let away = captures.name("away").unwrap().as_str();
+                let mut game = Game::new(matchweek, date, home, away);
+                if let Some((home_score, away_score)) = captures
+                    .name("home_score")
+                    .and_then(|h| captures.name("away_score").map(|a| (h, a)))
+                {
                     let home_score = home_score.as_str().parse::<u16>()?;
-                    if let Some(away_score) = captures.name("away_score") {
-                        let away_score = away_score.as_str().parse::<u16>()?;
-                        let home = captures.name("home").unwrap().as_str();
-                        let away = captures.name("away").unwrap().as_str();
-                        games.push(
-                            Game::new(matchweek, date, home, away)
-                                .with_scores(home_score, away_score),
-                        );
-                    }
+                    let away_score = away_score.as_str().parse::<u16>()?;
+                    game.set_scores(home_score, away_score);
                 }
+                games.push(game);
             } else {
                 return Err(Error::InvalidSeasonLine(line.to_string()).into());
             }
@@ -225,7 +225,7 @@ impl Season {
             .iter()
             .filter_map(|game| {
                 if game.matchweek == matchweek {
-                    unimplemented!()
+                    Some(Odds::new(game, &stats))
                 } else {
                     None
                 }
@@ -272,15 +272,14 @@ impl Game {
     ///
     /// ```
     /// use openfootball::Game;
-    /// let game = Game::new(1, "2018-08-11".parse().unwrap(), "Newcastle United", "Tottenham Hotspur")
-    ///     .with_scores(1, 2);
+    /// let mut game = Game::new(1, "2018-08-11".parse().unwrap(), "Newcastle United", "Tottenham Hotspur");
+    /// game.set_scores(1, 2);
     /// ```
-    pub fn with_scores(mut self, home: u16, away: u16) -> Game {
+    pub fn set_scores(&mut self, home: u16, away: u16) {
         self.scores = Some(Scores {
             home: home,
             away: away,
         });
-        self
     }
 
     /// Returns the home team's name.
@@ -385,6 +384,24 @@ impl Stats {
     }
 }
 
+impl Odds {
+    fn new(game: &Game, stats: &HashMap<String, Stats>) -> Result<Odds, Error> {
+        let home = stats
+            .get(&game.home)
+            .ok_or(Error::MissingTeam(game.home.clone()))?;
+        let away = stats
+            .get(&game.away)
+            .ok_or(Error::MissingTeam(game.away.clone()))?;
+        let (home, away) = expected_score(f64::from(home.elo_rating), f64::from(away.elo_rating));
+        Ok(Odds {
+            home: game.home.clone(),
+            home_expected_score: home,
+            away: game.away.clone(),
+            away_expected_score: away,
+        })
+    }
+}
+
 fn expected_score(home: f64, away: f64) -> (f64, f64) {
     let home = 1. / (1. + 10f64.powf((away - home) / 400.));
     let away = 1. - home;
@@ -398,7 +415,7 @@ mod tests {
     #[test]
     fn season_game() {
         let season = Season::from_path("tests/data/pl.txt").unwrap();
-        assert_eq!(279, season.games().len());
+        assert_eq!(380, season.games().len());
     }
 
     #[test]
