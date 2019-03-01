@@ -23,14 +23,19 @@ pub struct Season {
 }
 
 /// A football game.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Debug)]
 pub struct Game {
     date: NaiveDate,
     matchday: u16,
     home: String,
-    home_score: Option<u16>,
     away: String,
-    away_score: Option<u16>,
+    scores: Option<Scores>,
+}
+
+#[derive(Debug)]
+struct Scores {
+    home: u16,
+    away: u16,
 }
 
 /// A team's standing at the end of a day.
@@ -60,6 +65,10 @@ pub enum Error {
     /// This line of the season file could not be parsed.
     #[fail(display = "invalid season line: {}", _0)]
     InvalidSeasonLine(String),
+
+    /// This team was missing from the stats map when trying to calculate standings.
+    #[fail(display = "missing team: {}", _0)]
+    MissingTeam(String),
 }
 
 impl Season {
@@ -168,7 +177,7 @@ impl Season {
     /// let season = Season::from_path("tests/data/pl.txt").unwrap();
     /// let standings = season.standings(1500, 32.);
     /// ```
-    pub fn standings(&self, initial_elo_rating: i32, k: f64) -> Vec<Standing> {
+    pub fn standings(&self, initial_elo_rating: i32, k: f64) -> Result<Vec<Standing>, Error> {
         use std::collections::{HashMap, HashSet};
 
         let mut teams = HashSet::new();
@@ -181,7 +190,7 @@ impl Season {
             .map(|team| (team.to_string(), Stats::new(initial_elo_rating)))
             .collect();
         for game in &self.games {
-            game.update_stats(&mut stats);
+            game.update_stats(&mut stats, k)?;
         }
         unimplemented!()
     }
@@ -201,9 +210,8 @@ impl Game {
             matchday: matchday,
             date: date,
             home: home.to_string(),
-            home_score: None,
             away: away.to_string(),
-            away_score: None,
+            scores: None,
         }
     }
 
@@ -217,8 +225,10 @@ impl Game {
     ///     .with_scores(1, 2);
     /// ```
     pub fn with_scores(mut self, home: u16, away: u16) -> Game {
-        self.home_score = Some(home);
-        self.away_score = Some(away);
+        self.scores = Some(Scores {
+            home: home,
+            away: away,
+        });
         self
     }
 
@@ -248,8 +258,8 @@ impl Game {
         &self.away
     }
 
-    fn update_stats(&self, stats: &mut HashMap<String, Stats>) {
-        unimplemented!()
+    fn update_stats(&self, stats: &mut HashMap<String, Stats>, k: f64) -> Result<(), Error> {
+        Ok(())
     }
 }
 
