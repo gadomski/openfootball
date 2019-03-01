@@ -67,8 +67,8 @@ pub struct Stats {
 #[derive(Debug, Serialize)]
 pub struct Odds {
     home: String,
-    away: String,
     home_expected_score: f64,
+    away: String,
     away_expected_score: f64,
 }
 
