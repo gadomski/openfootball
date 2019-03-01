@@ -6,8 +6,9 @@ pub struct Game {
     date: NaiveDate,
     matchday: u16,
     home: String,
+    home_score: Option<u16>,
     away: String,
-    scores: Option<(u16, u16)>,
+    away_score: Option<u16>,
 }
 
 impl Game {
@@ -24,8 +25,9 @@ impl Game {
             matchday: matchday,
             date: date,
             home: home.to_string(),
+            home_score: None,
             away: away.to_string(),
-            scores: None,
+            away_score: None,
         }
     }
 
@@ -39,7 +41,8 @@ impl Game {
     ///     .with_score(2, 1);
     /// ```
     pub fn with_score(mut self, home: u16, away: u16) -> Game {
-        self.scores = Some((home, away));
+        self.home_score = Some(home);
+        self.away_score = Some(away);
         self
     }
 }

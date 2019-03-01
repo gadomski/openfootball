@@ -26,7 +26,6 @@ impl Season {
         use std::fs::File;
         use std::io::{BufRead, BufReader};
 
-        let mut name = String::new();
         let mut year = 0i32;
         let header_regex = Regex::new(r"^# (?P<name>.+) (?P<year>\d{4})/\d{2}$").unwrap();
         let mut matchday = 0u16;
@@ -57,7 +56,6 @@ impl Season {
             if line.is_empty() {
                 continue;
             } else if let Some(captures) = header_regex.captures(line) {
-                name = captures.name("name").unwrap().as_str().to_string();
                 year = captures.name("year").unwrap().as_str().parse()?;
             } else if let Some(captures) = matchday_regex.captures(line) {
                 matchday = captures.name("matchday").unwrap().as_str().parse()?;
