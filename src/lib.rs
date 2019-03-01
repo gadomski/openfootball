@@ -63,6 +63,15 @@ pub struct Stats {
     elo_rating: i32,
 }
 
+/// The odds of results of a certain game.
+#[derive(Debug, Serialize)]
+pub struct Odds {
+    home: String,
+    away: String,
+    home_expected_score: f64,
+    away_expected_score: f64,
+}
+
 /// Crate-specific errors.
 #[derive(Debug, Fail)]
 pub enum Error {
@@ -202,6 +211,25 @@ impl Season {
         }
         Ok(standings)
     }
+
+    /// Returns the odds for a given matchday.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use openfootball::Season;
+    /// let season = Season::from_path("tests/data/pl.txt").unwrap();
+    /// let odds = season.odds(1500, 32., 29);
+    /// ```
+    pub fn odds(
+        &self,
+        initial_elo_rating: i32,
+        k: f64,
+        matchweek: u16,
+    ) -> Result<Vec<Odds>, Error> {
+        let standings = self.standings(initial_elo_rating, k)?;
+        unimplemented!()
+    }
 }
 
 impl Game {
@@ -322,8 +350,7 @@ impl Game {
                 elo_rating: stats.elo_rating,
             })
         };
-        let expected_home = 1. / (1. + 10f64.powf((away_rating - home_rating) / 400.));
-        let expected_away = 1. - expected_home;
+        let (expected_home, expected_away) = expected_score(home_rating, away_rating);
         let home = update(&self.home, scores.home, scores.away, expected_home)?;
         let away = update(&self.away, scores.away, scores.home, expected_away)?;
         Ok(Some((home, away)))
@@ -341,6 +368,12 @@ impl Stats {
             elo_rating: initial_elo_rating,
         }
     }
+}
+
+fn expected_score(home: f64, away: f64) -> (f64, f64) {
+    let home = 1. / (1. + 10f64.powf((away - home) / 400.));
+    let away = 1. - home;
+    (home, away)
 }
 
 #[cfg(test)]
