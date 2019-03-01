@@ -67,8 +67,12 @@ pub struct Stats {
 #[derive(Debug, Serialize)]
 pub struct Odds {
     home: String,
+    home_rank: u8,
+    home_elo_rank: u8,
     home_expected_score: f64,
     away: String,
+    away_rank: u8,
+    away_elo_rank: u8,
     away_expected_score: f64,
 }
 
@@ -382,6 +386,10 @@ impl Stats {
             elo_rating: initial_elo_rating,
         }
     }
+
+    fn points(&self) -> u16 {
+        self.wins * 3 + self.draws
+    }
 }
 
 impl Odds {
@@ -392,12 +400,34 @@ impl Odds {
         let away = stats
             .get(&game.away)
             .ok_or(Error::MissingTeam(game.away.clone()))?;
-        let (home, away) = expected_score(f64::from(home.elo_rating), f64::from(away.elo_rating));
+
+        let rank = |team: &str, vec: &[(&String, &Stats)]| {
+            vec.iter()
+                .position(|(t, _)| t == &team)
+                .map(|n| n as u8 + 1)
+                .ok_or(Error::MissingTeam(team.to_string()))
+        };
+        let mut stats_vec = stats.iter().collect::<Vec<_>>();
+        stats_vec.sort_by_key(|(_, stats)| stats.points());
+        stats_vec.reverse();
+        let home_rank = rank(&game.home, &stats_vec)?;
+        let away_rank = rank(&game.away, &stats_vec)?;
+        stats_vec.sort_by_key(|(_, stats)| stats.elo_rating);
+        stats_vec.reverse();
+        let home_elo_rank = rank(&game.home, &stats_vec)?;
+        let away_elo_rank = rank(&game.away, &stats_vec)?;
+
+        let (home_expected_score, away_expected_score) =
+            expected_score(f64::from(home.elo_rating), f64::from(away.elo_rating));
         Ok(Odds {
             home: game.home.clone(),
-            home_expected_score: home,
+            home_rank: home_rank,
+            home_elo_rank: home_elo_rank,
+            home_expected_score: home_expected_score,
             away: game.away.clone(),
-            away_expected_score: away,
+            away_rank: away_rank,
+            away_elo_rank: away_elo_rank,
+            away_expected_score: away_expected_score,
         })
     }
 }
