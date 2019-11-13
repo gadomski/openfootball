@@ -98,7 +98,7 @@ impl Season {
     /// let season = Season::from_path("tests/data/pl.txt").unwrap();
     /// ```
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Season, failure::Error> {
-        use chrono::{Datelike, NaiveDate, Utc};
+        use chrono::{Datelike, Utc};
         use regex::Regex;
         use std::fs::File;
         use std::io::{BufRead, BufReader};
